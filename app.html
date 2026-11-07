@@ -582,12 +582,32 @@ body.dark .mock-stat, body.dark .empty-note { color: var(--muted); }
 [data-theme="dark"] .dd-item:hover, [data-theme="dark"] .acct-item:hover, [data-theme="dark"] .mode-btn:hover, [data-theme="dark"] tr.trow:hover td { background: #1e2430 !important; }
 [data-theme="dark"] table th, [data-theme="dark"] table td { border-color: var(--line); }
 [data-theme="dark"] .hint, [data-theme="dark"] .empty-note, [data-theme="dark"] .muted { color: var(--muted); }
-[data-theme="dark"] .mode-btn.on, [data-theme="dark"] .seg-btn.on { background: #262c4a !important; }
+[data-theme="dark"] .mode-btn.on, [data-theme="dark"] .seg-btn.on { background: var(--accent) !important; color: #ffffff !important; }
+.seg { display: flex; }
+.seg .seg-btn { flex: 1; padding: 9px 10px; font-size: 13px; color: var(--text); }
 .pb-title { font-size: 20px !important; font-weight: 700; border: none !important; padding: 4px 0 !important; background: transparent !important; width: 100%; }
 .pb-rules { display: grid; gap: 8px; margin-top: 10px; }
 .pb-rule { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #ffffff; }
 .pb-rule > span:nth-child(2) { flex: 1; }
 .pb-box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid #c3c9d9; flex: none; }
+
+/* Trade window: every detail can be edited */
+.tw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.tw-f { display: grid; gap: 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.tw-f input, .tw-f select { font-size: 14px; color: var(--text); font-weight: 400; }
+.tw-sess { display: flex; gap: 10px; align-items: flex-end; margin-top: 12px; }
+.tw-sess .tw-f { flex: 1; }
+@media (max-width: 560px) { .tw-grid { grid-template-columns: 1fr; } }
+.crow2 { display: grid; grid-template-columns: 170px minmax(0,1fr) 56px; gap: 12px; align-items: center; padding: 9px 0; font-size: 13px; border-bottom: 1px solid var(--line); }
+
+.sess-row2 { display: flex; gap: 6px; align-items: center; }
+.icon-b { width: 36px; height: 36px; flex: none; border-radius: 9px; border: 1px solid var(--line); background: #ffffff; color: var(--text); font-size: 15px; cursor: pointer; display: grid; place-items: center; }
+.icon-b:hover { border-color: var(--accent); color: var(--accent); }
+.icon-b.danger:hover { border-color: var(--loss); color: var(--loss); }
+
+/* Hide the Trading psychology side panel on the data collection page and while a trade window is open */
+body.hide-mind .rightbar, body.hide-mind .rb-tab, body.hide-mind .rb-handle { display: none !important; }
+body:has(#dlgTrade[open]) .rightbar, body:has(#dlgTrade[open]) .rb-tab, body:has(#dlgTrade[open]) .rb-handle { display: none !important; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
 </head>
@@ -965,7 +985,7 @@ function calendarHTML() {
   const panel = sel ? `<div class="day-panel">
       <div class="day-panel-head"><h2 style="margin:0">${dt(ui.selectedDay)}</h2>
         <div style="display:flex;gap:8px"><button class="mini" data-action="add" data-day="${ui.selectedDay}">Add trade this day</button><button class="mini danger" data-action="del-day" data-day="${ui.selectedDay}">${ui.confirmDay === ui.selectedDay ? "Confirm delete" : "Delete all trades"}</button></div></div>
-      <table><tbody>${sel.map(t => `<tr><td>${escapeHTML(sessionName(t.sessionId))}</td><td>${escapeHTML(t.sym)}</td><td>${escapeHTML(modelName(t.modelId))}</td>
+      <table><tbody>${sel.map(t => `<tr class="trow" data-tid="${t.id}"><td>${escapeHTML(sessionName(t.sessionId))}</td><td>${escapeHTML(t.sym)}</td><td>${escapeHTML(modelName(t.modelId))}</td>
         <td class="n ${cls(t.pnl)}">${fmt(t.pnl)}</td>
         <td class="n"><button class="x" data-action="del" data-id="${t.id}" aria-label="Delete trade">×</button></td></tr>`).join("") || `<tr><td class="empty-note">No trades.</td></tr>`}</tbody></table>
     </div>` : `<div class="hint" style="margin-top:12px">Click a trading day to see its trades.</div>`;
@@ -2541,13 +2561,19 @@ function dlgBodyHTML() {
   }
   const accFoot = `<div class="dd-foot"><input id="dlgAccName" class="dd-input" placeholder="New account name" aria-label="New account"><button type="button" class="mini primary" data-dlg="add-account">Add</button></div>`;
   const curSession = sessions.find(x => x.id === d.session);
-  const sessTools = curSession ? `<div class="sess-tools"><label>Rename this session<input value="${escapeHTML(curSession.name)}" data-dlg-rename="${curSession.id}" aria-label="Rename session"></label></div>` : "";
+  const sessRow = `<div class="sess-row2">
+      <div style="flex:1;min-width:0">${ui.renamingSess && curSession
+        ? `<div class="sess-row2"><input id="dlgSessRename" class="dd-input" value="${escapeHTML(curSession.name)}" aria-label="Session name" style="flex:1"><button type="button" class="icon-b" data-tw="sess-save" aria-label="Save name">&#10003;</button></div>`
+        : dlgDD("session", "Session", sessions, d.session, "Choose a session", sessFoot)}</div>
+      ${curSession && !(ui.renamingSess) ? `<button type="button" class="icon-b" data-tw="sess-edit" aria-label="Rename session" title="Rename">&#9998;</button><button type="button" class="icon-b danger" data-tw="sess-remove" data-id="${curSession.id}" aria-label="Remove session" title="Remove">${ui.confirmSess === curSession.id ? "Sure?" : "&times;"}</button>` : ""}
+    </div>`;
+  const sessTools = curSession ? `<div class="sess-tools"><label>Rename this session<input value="${escapeHTML(curSession.name)}" data-dlg-rename="${curSession.id}" aria-label="Rename session"></label><button type="button" class="mini danger" data-tw="sess-remove" data-id="${curSession.id}">${ui.confirmSess === curSession.id ? "Confirm remove session" : "Remove session"}</button></div>` : "";
   const modeBtn = (v, label, sub) => `<button type="button" class="mode-btn ${d.mode === v ? "on" : ""}" data-dlg="mode" data-v="${v}" aria-pressed="${d.mode === v}"><b>${label}</b><span>${sub}</span></button>`;
   const modeBlock = `<div class="dlg-field"><div class="dlg-label">What do you want to save?</div>
     <div class="mode-row">${modeBtn("data", "Data only", "Numbers, quick")}${modeBtn("journal", "Journal", "Notes and pictures")}${modeBtn("both", "Both", "Everything")}</div></div>`;
   const showJournal = d.mode === "journal" || d.mode === "both";
   const img = d.image
-    ? `<div class="img-prev"><img src="${d.image.data}" alt="Chart screenshot"><div class="img-meta"><span>${escapeHTML(d.image.name)}</span><button type="button" class="mini" data-dlg="rm-image">Remove</button></div></div>`
+    ? `<div class="img-prev"><img src="${d.image.data}" alt="Chart screenshot"><div class="img-meta"><span>Picture added</span><button type="button" class="mini" data-dlg="rm-image">Remove</button></div></div>`
     : `<label id="dlgDrop" class="drop" tabindex="0">Drop a chart picture here, or click to choose one<input id="dlgImg" type="file" accept="image/*" hidden></label>`;
   const journal = showJournal ? `<div class="dlg-field"><div class="dlg-label">Notes</div>
       <textarea class="notes-area" data-dlg-field="reflection" placeholder="Write what you saw, like a page in Notion...">${escapeHTML(d.reflection)}</textarea></div>
@@ -2565,11 +2591,10 @@ function dlgBodyHTML() {
     </div>
     <div class="dlg-grid" style="margin-top:4px">
       ${d.mode !== "data" ? dlgDD("account", "Account", accounts, d.account, "Choose an account", accFoot) : ""}
-      ${dlgDD("session", "Session", sessions, d.session, "Choose a session", sessFoot)}
+      ${sessRow}
     </div>
-    ${sessTools}
     <div class="dlg-grid" style="margin-top:12px">
-      <div class="dlg-field"><div class="dlg-label">Net P&amp;L (USD)</div><input type="number" step="1" value="${escapeHTML(d.pnl)}" placeholder="-150 or 320" data-dlg-field="pnl" aria-label="Net P and L"></div>
+      ${d.mode !== "data" ? `<div class="dlg-field"><div class="dlg-label">Net P&amp;L (USD)</div><input type="number" step="1" value="${escapeHTML(d.pnl)}" placeholder="-150 or 320" data-dlg-field="pnl" aria-label="Net P and L"></div>` : ""}
       ${dlgDD("model", "Entry model", models, d.model, "Choose a model (optional)", modelFoot)}
     </div>
     ${mindset}
@@ -2638,12 +2663,12 @@ document.addEventListener("click", e => {
     if (d.mode !== "data" && !d.account) { alert("Choose an account."); return; }
     if (!d.session) { alert("Choose a session."); return; }
     if (!d.date) { alert("Choose a date."); return; }
-    if (d.pnl === "" || Number.isNaN(pnl)) { alert("Enter the net P&L, for example -150 or 320."); return; }
+    if (d.mode !== "data" && (d.pnl === "" || Number.isNaN(pnl))) { alert("Enter the net P&L, for example -150 or 320."); return; }
     const showJournal = d.mode === "journal" || d.mode === "both";
     const pair = (state.pairs || []).find(x => x.id === d.pair);
     state.trades.push({
       id: uid(), date: d.date, accountId: d.account, sessionId: d.session, sym: pair ? pair.name : "",
-      pnl, modelId: d.model || null, mode: d.mode,
+      pnl: d.mode === "data" ? 0 : pnl, modelId: d.model || null, mode: d.mode,
       reflection: showJournal ? String(d.reflection || "").trim() : "",
       files: showJournal && d.image ? [{ name: d.image.name, type: d.image.type, data: d.image.data }] : [],
       psych: { rating: d.rating, tags: [...d.tags] }
@@ -2712,7 +2737,7 @@ function tdlBodyHTML(t) {
     <div class="tdl-section"><div class="tdl-kicker">Notes</div>
       <textarea class="tdl-notes" data-tdl-note aria-label="Trade notes" placeholder="Write about this trade. Notes save as you type.">${escapeHTML(t.reflection || "")}</textarea></div>
     <div class="tdl-section"><div class="tdl-kicker">Pictures</div>
-      ${imgs.length ? `<div class="tdl-gallery">${imgs.map(({ f, i }) => `<figure class="tdl-pic"><img src="${f.data}" alt="${escapeHTML(f.name || "Chart picture")}"><figcaption><span>${escapeHTML(f.name || "Picture")}</span><button type="button" class="mini" data-tdl="rm-pic" data-i="${i}">Remove</button></figcaption></figure>`).join("")}</div>` : `<div class="empty-note" style="padding:12px 0">No pictures yet.</div>`}
+      ${imgs.length ? `<div class="tdl-gallery">${imgs.map(({ f, i }) => `<figure class="tdl-pic"><img src="${f.data}" alt="Trade picture"><figcaption><span></span><button type="button" class="mini" data-tdl="rm-pic" data-i="${i}">Remove</button></figcaption></figure>`).join("")}</div>` : `<div class="empty-note" style="padding:12px 0">No pictures yet.</div>`}
       <label class="drop" id="tdlDrop" style="margin-top:10px" tabindex="0">Drop a chart picture here, or click to add one<input id="tdlPic" type="file" accept="image/*" hidden></label>
     </div>
   </div>`;
@@ -2862,6 +2887,192 @@ function viewSettings() {
   </div>`;
 }
 
+
+/* ============ Data collection page without dollar amounts; trade window fully editable; paste pictures ============ */
+function viewData() {
+  const list = [...state.trades].sort(sortDesc);
+  const n = list.length, wins = list.filter(t => t.pnl > 0).length;
+  const winRate = n ? Math.round(wins / n * 100) : 0;
+  const pics = list.reduce((acc, t) => acc + (t.files || []).filter(f => f.type && f.type.startsWith("image/")).length, 0);
+  const days = new Set(list.map(t => t.date)).size;
+  const withNotes = list.filter(t => (t.reflection || "").trim()).length;
+  const withMind = list.filter(t => t.psych && t.psych.rating).length;
+  const pct = x => n ? Math.round(x / n * 100) : 0;
+  const bySess = new Map();
+  list.forEach(t => { const k = sessionName(t.sessionId); const v = bySess.get(k) || { n: 0, w: 0 }; v.n++; if (t.pnl > 0) v.w++; bySess.set(k, v); });
+  const rows = [...bySess].sort((a, b) => b[1].n - a[1].n);
+  const mx = Math.max(1, ...rows.map(r => r[1].n));
+  return `<div class="card">
+    <h2 style="margin-bottom:12px">Data collection dashboard</h2>
+    <div class="sumline"><div>Trades<b>${n}</b></div><div>Win rate<b>${winRate}%</b></div><div>Days logged<b>${days}</b></div><div>Pictures<b>${pics}</b></div></div>
+    <div class="row r1" style="margin-top:12px">
+      <div class="card"><h2>By session</h2>${rows.length ? rows.map(([name, v]) => `<div class="hrow wide"><span>${escapeHTML(name)}</span><div class="htrack"><i style="width:${v.n / mx * 100}%;background:var(--accent)"></i></div><b class="n">${v.n} trades</b></div>`).join("") : `<div class="empty-note">No trades yet.</div>`}</div>
+      <div class="card"><h2>Completeness</h2>
+        <div class="crow2"><span>Notes written</span><div class="htrack"><i style="width:${pct(withNotes)}%;background:var(--accent)"></i></div><b class="n">${pct(withNotes)}%</b></div>
+        <div class="crow2"><span>Mindset rated</span><div class="htrack"><i style="width:${pct(withMind)}%;background:var(--accent)"></i></div><b class="n">${pct(withMind)}%</b></div>
+        <div class="crow2"><span>Picture attached</span><div class="htrack"><i style="width:${pct(list.filter(t => (t.files || []).some(f => f.type && f.type.startsWith("image/"))).length)}%;background:var(--accent)"></i></div><b class="n">${pct(list.filter(t => (t.files || []).some(f => f.type && f.type.startsWith("image/"))).length)}%</b></div>
+      </div>
+    </div></div>
+    <div class="card" style="margin-top:12px">
+      <div class="flex" style="margin-bottom:6px;flex-wrap:wrap"><h2 style="margin:0">Entry models</h2><button class="primary" data-action="new-model">Add entry model</button></div>
+      <div class="model-grid">${state.models.map(mo => {
+        const ts = state.trades.filter(t => t.modelId === mo.id);
+        const w = ts.filter(t => t.pnl > 0).length;
+        return `<button class="model-card" data-action="open-model" data-id="${mo.id}">
+          <b>${escapeHTML(mo.name || "Untitled")}</b>
+          <span>${ts.length} trades &middot; ${ts.length ? Math.round(w / ts.length * 100) : 0}% win rate</span>
+          <span>${escapeHTML((mo.description || "").slice(0, 100)) || "No description yet"}</span></button>`;
+      }).join("") || `<div class="empty-note">No entry models yet. Add one to start tracking a setup.</div>`}</div>
+    </div>
+    <div class="card" style="margin-top:12px"><h2>All trades</h2>
+      ${list.length ? `<table><thead><tr><th>Date</th><th>Session</th><th>Pair</th><th>Model</th><th>Notes</th><th>Picture</th></tr></thead><tbody>
+        ${list.map(t => `<tr class="trow" data-tid="${t.id}"><td>${dt(t.date)}</td><td>${escapeHTML(sessionName(t.sessionId))}</td><td>${escapeHTML(t.sym)}</td><td>${escapeHTML(modelName(t.modelId))}</td>
+          <td class="hint">${escapeHTML((t.reflection || "").slice(0, 60)) || "&mdash;"}</td><td>${(() => { const im = (t.files || []).find(f => f.type && f.type.startsWith("image/")); return im ? `<img src="${im.data}" alt="Trade picture" style="width:64px;height:44px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line)">` : "&mdash;"; })()}</td></tr>`).join("")}
+        </tbody></table>` : `<div class="empty-note">No trades yet.</div>`}
+    </div>`;
+}
+
+function tdlBodyHTML(t) {
+  const money = ui.view !== "data";
+  const pairs = state.pairs || [];
+  const pairOpts = pairs.map(p => `<option value="${escapeHTML(p.name)}" ${p.name === t.sym ? "selected" : ""}>${escapeHTML(p.name)}</option>`).join("")
+    + (t.sym && !pairs.some(p => p.name === t.sym) ? `<option value="${escapeHTML(t.sym)}" selected>${escapeHTML(t.sym)}</option>` : "");
+  const sess = state.sessions.find(x => x.id === t.sessionId);
+  const sessOpts = `<option value="" ${!t.sessionId ? "selected" : ""}>No session</option>` + state.sessions.map(x => `<option value="${x.id}" ${x.id === t.sessionId ? "selected" : ""}>${escapeHTML(x.name)}</option>`).join("");
+  const accOpts = `<option value="">No account</option>` + state.accounts.map(a => `<option value="${a.id}" ${a.id === t.accountId ? "selected" : ""}>${escapeHTML(a.name)}</option>`).join("");
+  const modOpts = `<option value="">No model</option>` + state.models.map(m => `<option value="${m.id}" ${m.id === t.modelId ? "selected" : ""}>${escapeHTML(m.name)}</option>`).join("");
+  const modeBtn = (v, l) => `<button type="button" class="seg-btn ${t.mode === v ? "on" : ""}" data-tw="mode" data-v="${v}" aria-pressed="${t.mode === v}">${l}</button>`;
+  const rating = (t.psych && t.psych.rating) || 0, tags = (t.psych && t.psych.tags) || [];
+  const imgs = (t.files || []).map((f, i) => ({ f, i })).filter(x => x.f.type && x.f.type.startsWith("image/"));
+  const confirming = !!sess && ui.confirmSess === sess.id;
+  const resultLabel = t.pnl > 0 ? "Win" : t.pnl < 0 ? "Loss" : "Breakeven";
+  return `<div class="tdl">
+    <div class="dlg-head"><div><div class="tdl-kicker">${dt(t.date)} &middot; ${escapeHTML(accountName(t.accountId))}</div><h2 class="tdl-title">${escapeHTML(t.sym || "Trade")}</h2></div>
+      <button type="button" class="x" data-tdl="close" aria-label="Close">&times;</button></div>
+    <div class="tw-grid">
+      <label class="tw-f">Pair<select data-tw-field="sym">${pairOpts || '<option value="">Add a pair in Add trade first</option>'}</select></label>
+      <label class="tw-f">Date<input type="date" value="${t.date}" data-tw-field="date"></label>
+      <label class="tw-f">Session<select data-tw-field="sessionId">${sessOpts}</select></label>
+      <label class="tw-f">Account<select data-tw-field="accountId">${accOpts}</select></label>
+      ${money ? `<label class="tw-f">Net P&amp;L (USD)<input type="number" step="1" value="${t.pnl}" data-tw-field="pnl"></label>` : ""}
+      <label class="tw-f">Entry model<select data-tw-field="modelId">${modOpts}</select></label>
+    </div>
+    ${sess ? `<div class="tw-sess"><label class="tw-f">Session name<input value="${escapeHTML(sess.name)}" data-tw-rename="${sess.id}"></label>
+      <button type="button" class="mini danger" data-tw="sess-remove" data-id="${sess.id}">${confirming ? "Confirm remove session" : "Remove session"}</button></div>` : ""}
+    <div class="tw-f" style="margin-top:16px">Saved as${t.mode ? "" : ' <span class="hint">(choose one)</span>'}</div>
+    <div class="seg" style="margin-top:6px">${modeBtn("data", "Data only")}${modeBtn("journal", "Journal")}${modeBtn("both", "Both")}</div>
+    <div class="tw-f" style="margin-top:16px">How confident did you feel before this trade?</div>
+    <div class="conf-row" style="margin-top:6px">${[[1, "Unsure"], [2, "Shaky"], [3, "Okay"], [4, "Confident"], [5, "Very sure"]].map(([v, l]) => `<button type="button" class="conf-btn ${rating === v ? "on" : ""}" data-tw="rate" data-v="${v}" aria-pressed="${rating === v}"><b>${v}</b><span>${l}</span></button>`).join("")}</div>
+    <div class="tag-row2" style="margin-top:8px">${FEELINGS.map(x => `<button type="button" class="tag2 ${tags.includes(x) ? "on" : ""}" data-tw="tag" data-v="${escapeHTML(x)}" aria-pressed="${tags.includes(x)}">${escapeHTML(x)}</button>`).join("")}</div>
+    <div class="result-line hint" style="margin-top:12px">Result: <b class="${cls(t.pnl)}">${resultLabel}</b> &middot; Entry model: ${escapeHTML(modelName(t.modelId))}</div>
+    <div class="tdl-section"><div class="tdl-kicker">Notes</div>
+      <textarea class="tdl-notes" data-tdl-note aria-label="Trade notes" placeholder="Write about this trade. Notes save as you type.">${escapeHTML(t.reflection || "")}</textarea></div>
+    <div class="tdl-section"><div class="tdl-kicker">Pictures</div>
+      ${imgs.length ? `<div class="tdl-gallery">${imgs.map(({ f, i }) => `<figure class="tdl-pic"><img src="${f.data}" alt="Trade picture"><figcaption><span></span><button type="button" class="mini" data-tdl="rm-pic" data-i="${i}">Remove</button></figcaption></figure>`).join("")}</div>` : `<div class="empty-note" style="padding:12px 0">No pictures yet.</div>`}
+      <label class="drop" id="tdlDrop" tabindex="0" style="margin-top:10px">Paste a picture here (Ctrl+V or Cmd+V), drop one, or click to choose<input id="tdlPic" type="file" accept="image/*" hidden></label>
+    </div></div>`;
+}
+
+// Edits in the trade window save straight away
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-tw]");
+  if (!el) return;
+  e.stopImmediatePropagation(); e.preventDefault();
+  const a = el.dataset.tw;
+  if (a === "sess-edit") { ui.renamingSess = true; dlgRender(); return; }
+  if (a === "sess-save") {
+    const nm = String((document.getElementById("dlgSessRename") || {}).value || "").trim();
+    const sx = state.sessions.find(x => x.id === ui.dlg.session);
+    if (sx && nm) { sx.name = nm; save(); }
+    ui.renamingSess = false; dlgRender(); return;
+  }
+  if (a === "sess-remove") {
+    const id = el.dataset.id;
+    if (ui.confirmSess !== id) { ui.confirmSess = id; if (document.getElementById("dlgTrade").hasAttribute("open")) tdlRender(); else dlgRender(); return; }
+    state.sessions = state.sessions.filter(x => x.id !== id);
+    state.trades.forEach(x => { if (x.sessionId === id) x.sessionId = ""; });
+    ui.confirmSess = null;
+    if (ui.dlg && ui.dlg.session === id) ui.dlg.session = "";
+    save();
+    if (document.getElementById("dlgTrade").hasAttribute("open")) tdlRender(); else dlgRender();
+    return;
+  }
+  const t = state.trades.find(x => x.id === ui.tradeId);
+  if (!t) return;
+  if (a === "mode") t.mode = el.dataset.v;
+  else if (a === "rate") t.psych = { rating: Number(el.dataset.v), tags: (t.psych && t.psych.tags) || [] };
+  else if (a === "tag") {
+    const tg = (t.psych && t.psych.tags) || [], v = el.dataset.v;
+    t.psych = { rating: (t.psych && t.psych.rating) || 0, tags: tg.includes(v) ? tg.filter(x => x !== v) : [...tg, v] };
+  }
+  save(); tdlRender();
+}, true);
+document.addEventListener("change", e => {
+  const f = e.target.dataset && e.target.dataset.twField;
+  if (f === undefined) return;
+  e.stopImmediatePropagation();
+  const t = state.trades.find(x => x.id === ui.tradeId);
+  if (!t) return;
+  const v = e.target.value;
+  if (f === "pnl") { const n = Math.round(Number(v)); if (!Number.isNaN(n)) t.pnl = n; }
+  else if (f === "modelId") t.modelId = v || null;
+  else if (f === "accountId") t.accountId = v || "";
+  else if (f === "sessionId") t.sessionId = v || "";
+  else if (f === "sym") t.sym = v;
+  else if (f === "date") t.date = v;
+  save(); tdlRender();
+}, true);
+document.addEventListener("input", e => {
+  const t0 = e.target;
+  if (t0.dataset && t0.dataset.twRename !== undefined) {
+    const sess2 = state.sessions.find(x => x.id === t0.dataset.twRename);
+    if (sess2) { sess2.name = t0.value || "Untitled session"; save(); }
+    e.stopImmediatePropagation(); return;
+  }
+  if (t0.dataset && t0.dataset.twField === "pnl") {
+    const t = state.trades.find(x => x.id === ui.tradeId);
+    const n = Math.round(Number(t0.value));
+    if (t && !Number.isNaN(n)) { t.pnl = n; save(); }
+    e.stopImmediatePropagation();
+  }
+}, true);
+// Paste a picture (Notion style) into the trade window or the new trade form
+document.addEventListener("paste", e => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  const img = [...items].find(i => i.type && i.type.startsWith("image/"));
+  if (!img) return;
+  const file = img.getAsFile();
+  if (!file) return;
+  if (document.getElementById("dlgTrade").hasAttribute("open")) { e.preventDefault(); tdlAddPicture(file); }
+  else if (dlgNew() && dlgNew().hasAttribute("open")) { e.preventDefault(); dlgSetImage(file); }
+});
+
+
+/* Keep the psychology side panel off the data collection page */
+const renderWithoutMind = render;
+render = function () {
+  renderWithoutMind();
+  document.body.classList.toggle("hide-mind", ui.view === "data");
+};
+
+function mindsetHTML() {
+  const i = ui.quoteIdx % QUOTES.length;
+  return `<div class="psych">
+    <div class="psych-head"><span class="psych-title">Trading psychology</span><span class="psych-count">${i + 1} / ${QUOTES.length}</span></div>
+    <div class="mind-card">
+      <div class="mind-mark" aria-hidden="true">&ldquo;</div>
+      <p class="mind-quote">${escapeHTML(QUOTES[i])}</p>
+      <div class="mind-foot">
+        <span class="mind-by"><span class="mind-line"></span>VZ</span>
+        <button class="mind-next" data-action="next-quote">Next &rarr;</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* 300 extra quotes for the psychology panel */
+QUOTES.push(...["You cannot control the market. You can control how you prepare, how you size, and how you respond.", "The obstacle is the way. Each losing day teaches the trade you have not yet learned to take.", "Confidence comes from keeping promises to yourself, not from being right.", "A trader who needs to be right will eventually break the rules to prove it.", "Losses are information. Ignoring them is the expensive choice.", "Your first job is not to make money. It is to stay in the game long enough to learn.", "The best position is often the one you did not take.", "Impatience is the most common tax paid by traders.", "Protect your downside and the upside takes care of itself.", "Expectation is the source of most pain. Plan for the range of outcomes, not one result.", "Good process is judged over a hundred trades, not one.", "Fear magnifies every move. Smaller size quiets the noise.", "Write the plan before the bell. Reading it after the fact is hindsight, not discipline.", "What you repeat becomes who you are. Repeat the boring things well.", "The market does not know your name, your rent, or your goals. Trade what it shows you.", "Patience is not waiting. It is refusing to act without a reason.", "A stop-loss is a promise to your future self.", "You do not need to predict. You need to prepare and respond.", "Discipline is the bridge between what you know and what you do.", "If you cannot explain why you entered, you should not have entered.", "Edge is a repeatable process with positive expectancy, executed without emotion.", "The goal is consistency of execution, not perfection of outcome.", "Sit with the discomfort of doing nothing. Most good trades arrive after waiting.", "Your worst trades usually happen right after your best ones.", "Losing streaks test your process more than winning streaks do.", "Track the decisions, and the results will eventually reflect them.", "Overtrading is boredom wearing the costume of opportunity.", "Be a scientist: form a hypothesis, test it, record it, and revise it.", "Money is a score, not the game. Play the game well and the score follows.", "Give your strategy time to show its edge. Few setups work in a single week.", "Do not chase what has already moved. Let the next setup come to you.", "A calm mind is the most valuable indicator you own.", "The chart cannot hurt you. Your reaction to it can.", "Know your numbers before you need them: risk per trade, daily limit, weekly limit.", "Adapt your methods, never your principles.", "Every trade is one sample. Do not let a single sample rewrite your beliefs.", "Treat losses as tuition, and make sure you are learning from the course.", "A good day is not proof of skill. A bad day is not proof of failure.", "Trading is a long game played one decision at a time.", "Respect the risk you can afford to lose, not the profit you hope to make.", "The person who needs the money most is the person who should trade it least.", "Frustration is a signal to pause, not a reason to trade faster.", "Simplify your setup until the decision feels obvious.", "Your edge is not secret. It is the discipline to execute it every time.", "Recognise the difference between a setup and a wish.", "When you are unsure, reduce size. When you are certain, still follow the plan.", "Stillness is a position. Sometimes the most profitable thing is to wait.", "The market rewards those who wait for their pitch and punishes those who swing at everything.", "Study the losers in your journal as closely as the winners.", "You can be disciplined and still be wrong. The goal is to be disciplined and right over time.", "Do not confuse activity with progress.", "The fastest way to lose money is to trade while angry.", "Tomorrow is a new session. Yesterday does not get a vote.", "A plan you do not review is just a wish.", "Your risk model should survive your worst month, not only your best.", "Control the controllables: size, stop, timing, and attention.", "Everyone wants the big win. Professionals respect the small loss.", "You cannot size your way out of a bad process.", "A trade without a stop is a hope, not a trade.", "Trade the market in front of you, not the one in your head.", "The thrill of a win and the sting of a loss are both distractions from the process.", "Structure creates freedom. The rules you follow are what let you think clearly.", "If the setup is not in your playbook, it is not your trade.", "Compounding works for those who survive long enough to let it work.", "Look for reasons to pass as carefully as reasons to enter.", "A stable mind is worth more than an exciting strategy.", "When the plan is clear, the decision is easy. When it is not, do nothing.", "Respect the calendar: some sessions are not for you.", "Your journal is the only honest critic you need.", "Winners cut losers short and let winners run, and they do it on purpose.", "The urge to fix a bad trade with another trade is the most dangerous urge in trading.", "Measure yourself on how well you followed the plan, not on the P&L of one day.", "Your mind is the tool. Keep it sharp, rested, and clear.", "Stop trading when the thinking stops being clear.", "A small edge, repeated with discipline, beats a big idea executed once.", "The market is a mirror. What you see in it is often a reflection of yourself.", "Do not let the first loss of the day define the rest of the day.", "Every experienced trader was once a beginner who refused to quit learning.", "Shorter holds, smaller risks, cleaner decisions.", "The best time to review your rules is when you are not in a trade.", "You are allowed to take no trade for an entire week and still be doing your job.", "Fear and greed are both prices you pay for not following a plan.", "Ask what would make this trade wrong before you ask what would make it right.", "Good decisions made under uncertainty are the whole job.", "Let the process carry you through the bad days.", "Your character decides how much of your edge survives pressure.", "Do one thing well each session and the rest will improve over time.", "Learn the rules, respect the rules, and then you may bend them with reason.", "Keep a short list of mistakes you are working on, and check it before every session.", "The market will test your patience every single day. Pass the test by waiting.", "Make the decision, then let it play out. Second-guessing costs more than most trades.", "Your confidence should follow your results over many trades, not a single outcome.", "Reward yourself for following the process, even on losing days.", "Stay curious. The market always has something new to teach.", "Rest is part of the strategy. Tired minds make expensive mistakes.", "Know when you are trading for money and when you are trading for revenge.", "A winning trade that broke your rules is still a losing trade.", "Wisdom is knowing which trades to skip.", "Commit to your system before the emotions arrive, not during them.", "Stay humble with the market. It has humbled far better traders than you.", "The real edge is the decision you make when nobody is watching.", "Patience paid for by discipline is the cheapest tuition you will ever buy.", "Your plan should work on your worst day, not only your best.", "You will never regret the trade you did not take because the rules said no.", "A good trader knows exactly what they are risking before they click.", "Trust the process and the process will eventually trust you with more size.", "Do not trade the news. Trade the reaction to the news, with a plan.", "When you feel certain, check your size. Certainty is when mistakes grow.", "A quiet day with no trades can still be the best day of the week.", "Take responsibility for every trade. Blaming the market keeps you from learning.", "The market gives you chances all day. Do not take all of them.", "Slow down. Clarity comes to those who do not rush.", "What you measure improves. Track your process and the results will follow.", "Keep your ego out of the size, the stop, and the target.", "Winners and losers are both part of the same learning curve.", "The trader who survives is the one who manages risk before reward.", "Each session is a clean slate. Start it with the plan, not with yesterday's mood.", "Trading is a skill built one honest review at a time.", "You do not have to trade every setup. You only have to trade the ones you planned.", "Let your rules speak louder than your hopes.", "A mind at peace makes better decisions than a mind chasing recovery.", "If you feel the need to hurry, that is your cue to slow down.", "Small mistakes repeated become big habits. Fix them while they are small.", "Know your edge, know your risk, and know when to step away.", "Growth is uncomfortable. The discomfort is often the sign you are learning.", "Do not measure your success against other traders. Measure it against your plan.", "Hope is not a stop-loss. Preparation is.", "Make your rules simple enough to follow on your worst day.", "The best traders spend more time reviewing than they spend trading.", "Accept the outcome you were given and focus on the decision you controlled.", "A clear head is the most profitable thing in your trading kit.", "Do not let one trade change your identity as a trader.", "Your results will improve when your habits improve.", "Treat every session like a job you are proud to do well.", "Honesty in your journal creates honesty in your decisions.", "Focus on what you can repeat, not on what you hope will happen.", "Each time you follow the plan, you strengthen the habit that makes you profitable.", "Calm is contagious. Bring it into every trade.", "Lessons in the market arrive in small doses. Pay attention to each one.", "The market will always be there tomorrow. Make sure you are too.", "Patience and preparation beat speed and excitement over the long run.", "Protect your mind from the noise of the screen and your portfolio will benefit.", "Know what you are willing to lose before you know what you want to win.", "You do not need more trades. You need better ones.", "Take the trade that fits the plan, not the trade that fits your mood.", "The discipline to stop is as important as the discipline to start.", "One good decision at a time is how traders are built.", "Perfection is not the target. Improvement is.", "Losses that follow the rules are the cost of a working system.", "Your best edge is the habit of reviewing what you did and why.", "What matters is not being right, but being prepared when you are wrong.", "Relax into the plan. Tension makes execution worse.", "Keep your size honest and your stops honest, and the rest is easier.", "Study the market, study yourself, and keep both notebooks up to date.", "Trades are data points. Collect them carefully.", "A trader without rules is a gambler with a screen.", "Anything worth doing well takes repetition, patience, and honest feedback.", "The mind that pays attention to process is the mind that finds an edge.", "Do not confuse a lucky win with a skill.", "Trust the setup you studied, not the story you invented.", "Stay in your lane: your plan, your size, your time frame.", "The market rewards those who wait and punishes those who rush.", "Good traders are patient with the market and impatient with their own mistakes.", "Be clear about your goal: consistent execution, every session, every trade.", "Discipline is doing the right thing when it feels wrong.", "You are not behind. You are one honest review away from better decisions.", "Think in probabilities, act with discipline, and accept the results as they come.", "Strength is staying steady when the screen is moving fast.", "When you lose, ask what you can learn. When you win, ask what you can repeat.", "Keep the big picture in view and the small details in order.", "Do not let a losing trade steal tomorrow's focus.", "Your trading life is a long series of ordinary decisions. Make them well.", "Know your reasons, state them clearly, and then act.", "Each day you follow the plan is a day you win, regardless of the P&L.", "The best trade is a clear one, taken for a clear reason.", "Let the market come to your level instead of chasing it.", "Learn from every session, and make the next one a little better.", "Simple rules, followed daily, beat complicated plans followed sometimes.", "The market does not owe you anything. Your job is to respond well.", "Be the trader who is still here after the storm passes.", "Hold yourself to the standard you would expect from your best mentor.", "Stop trading when you are tired, frustrated, or elated. Those states are expensive.", "Timing matters, but preparation matters more.", "Your trading journal is a mirror. Look into it honestly.", "Consistency is quiet. It rarely makes headlines, but it compounds.", "A missed opportunity is a lesson in patience, not a regret.", "Focus on what is in front of you, one candle at a time.", "Respect your capital the way you would respect a family member.", "The market will humble you until you learn to listen.", "Strong traders do not need to be right every time, only correct over time.", "Make room for mistakes, and make sure they are the cheap kind.", "Plan the trade, trade the plan, and review the plan.", "Good risk management is a form of respect for the future.", "Every stop you move is a test you are failing.", "A profitable week is built from unremarkable days.", "The screen shows prices. You provide the discipline.", "Trade with a reason you could explain to a stranger.", "The market punishes emotion faster than it punishes ignorance.", "Let your routine be the thing that holds you steady.", "Winning comes from avoiding the big mistakes repeatedly.", "Being early and being wrong cost the same as being late and being wrong.", "Measure your success in sessions followed, not dollars made.", "Some days the wisest move is to close the platform and go outside.", "Clarity beats cleverness every time.", "If you cannot describe the setup in one sentence, you do not understand it yet.", "The most dangerous trade is the one you think you deserve.", "Keep a list of the rules you broke this month, and shrink it.", "Mastery is quiet repetition, done without applause.", "A disciplined trader is someone who has made peace with uncertainty.", "Your next trade will not repair your last one.", "The market doesn't reward effort. It rewards correct execution.", "Refuse to trade when you are not ready, even if the chart is ready.", "Your edge can be ruined by one emotional trade. Guard it.", "Protect your time, your health, and your focus. They are your real capital.", "A good process makes bad luck survivable.", "You can learn more from one honest review than from ten exciting wins.", "Slow, careful decisions create fast, confident execution later.", "The reward of discipline is often invisible until it suddenly is not.", "Take the loss that the plan allows, and move on without drama.", "Do the homework before the session, not during it.", "Keep your wins humble and your losses honest.", "Set a daily limit and treat it as sacred.", "The market will always offer another chance. Make sure you still have the capital to take it.", "Think long term. Today's trade is one page in a long book.", "Stop trying to win back what is gone and start building what comes next.", "A quiet mind sees setups that a noisy mind misses.", "When the plan says wait, wait.", "Ask yourself each morning: what am I trying to prove today?", "You are not your balance. You are the sum of your decisions.", "A trade that follows your rules is a success, even when it loses.", "The market is not your opponent. Your impulses are.", "Respect the stop, respect the size, respect the time frame.", "Good traders are boring on purpose.", "The fewer decisions you make in anger, the better your results become.", "Do not reward yourself with extra trades after a good day.", "Your confidence should be built from preparation, not from prediction.", "Remember why you started, and let that reason guide the next click.", "A small, consistent edge is the foundation of a long career.", "The process will always outlast the emotion.", "Accept what is, then decide what you will do with it.", "Clean charts come from clean thinking.", "Patience is the hardest skill to practise and the easiest to lose.", "The market does not care how you feel. Plan for it anyway.", "Each loss you handle well builds the calm you need for the next one.", "Your trading should feel like a routine, not a rollercoaster.", "Reduce the noise: fewer tabs, fewer alerts, fewer doubts.", "Trust your rules over your memories of past wins.", "Do not confuse a hot streak with a hot hand.", "Honest feedback is the fastest path to better trading.", "A plan written in calm is worth more than a plan written in panic.", "Be willing to be wrong quickly, and you will be wrong less expensively.", "The job is to execute, not to be proven right.", "Build a habit of pausing before every click.", "The strongest traders are often the calmest people in the room.", "Turn off the urge to be busy. Stay focused on the one setup that matters.", "Remember that the market will still be moving after you have rested.", "Your daily goal is to follow the plan, not to hit a number.", "Respect the process that got you here, even when it feels slow.", "You do not need to catch every move to make a living.", "Your losses teach you what your wins hide.", "Keep your focus on your edge and your edge will keep showing up.", "Treat trading as a craft you practise daily, not a lottery you wait on.", "Know exactly where you are wrong before you enter.", "If the market feels confusing, the answer is usually to reduce size.", "Good habits compound quietly, long before they show up in results.", "Let the chart prove the setup. Do not try to prove it yourself.", "The calmest decision is often the most profitable one.", "Stay with the trade that fits the plan. Let go of the rest.", "Your mind is not a good place to hide from losses. Look at them directly.", "A disciplined exit is worth more than a lucky entry.", "Track everything you can, and let the numbers tell you the truth.", "Show up, follow the plan, and review honestly. That is the whole game.", "When you are uncertain, your plan is your friend.", "Stop asking the market for permission. Ask your rules instead.", "Slow down enough to see what is actually happening.", "Trade your best setup, on your best days, with your best discipline.", "Your future self will thank you for the rule you follow today.", "Success in trading is the result of many small, correct decisions.", "A clear rule is worth more than a clever guess.", "Think before you click. Click only after you have thought.", "Hold your size steady when the market gets loud.", "The next trade is not owed to you. Earn it with patience.", "Discipline is not punishment. It is protection.", "Do the right trade for the right reason, every time.", "Losses are a normal cost of a working plan.", "Let the setup come to you, not the other way around.", "Each session is a chance to practise your best habits.", "Learn to enjoy the process more than the outcome.", "A stop placed with care is a gift to your future self.", "Reflect every evening, improve every morning.", "A calm exit is a sign of a strong plan.", "Do not let a single headline rewrite your strategy.", "Trade what you see, not what you fear.", "Keep learning, keep reviewing, keep trading small until you are ready.", "The market is a teacher. Stay humble enough to take the lesson.", "Your attention is your most valuable resource. Spend it wisely.", "Know when you are done for the day, and honour it.", "Every disciplined decision is a vote for the trader you want to be.", "Quality entries beat quantity entries.", "Be your own strictest coach and your kindest friend."]);
 state = load();
 state.pairs = state.pairs || [];
 state.playbooks = state.playbooks || [];
